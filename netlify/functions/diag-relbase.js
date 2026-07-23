@@ -51,24 +51,16 @@ exports.handler = async () => {
       }
     }
 
-    let data_type = null, data_obj_keys = null, first_product_keys = null;
-    if (json) {
-      const d = json.data;
-      if (Array.isArray(d)) {
-        data_type = "array(" + d.length + ")";
-        if (d.length) first_product_keys = Object.keys(d[0]);
-      } else if (d && typeof d === "object") {
-        data_type = "object";
-        data_obj_keys = Object.keys(d);
-        for (const k of data_obj_keys) {
-          if (Array.isArray(d[k]) && d[k].length && typeof d[k][0] === "object") {
-            first_product_keys = { via: k, keys: Object.keys(d[k][0]) };
-            break;
-          }
-        }
-      } else {
-        data_type = typeof d;
-      }
+    // Inspeccionar la estructura de inventarios/stock del primer producto.
+    let sample = null;
+    if (json && json.data && Array.isArray(json.data.products) && json.data.products.length) {
+      const p = json.data.products[0];
+      sample = {
+        code: p.code,
+        is_inventory: p.is_inventory,
+        inventories_type: Array.isArray(p.inventories) ? "array(" + p.inventories.length + ")" : typeof p.inventories,
+        inventory_item: Array.isArray(p.inventories) && p.inventories.length ? p.inventories[0] : null,
+      };
     }
 
     return {
@@ -77,9 +69,7 @@ exports.handler = async () => {
       body: JSON.stringify({
         relbase_auth_status: status,
         total_productos: totalCount,
-        data_type: data_type,
-        data_obj_keys: data_obj_keys,
-        first_product_keys: first_product_keys,
+        sample_producto: sample,
       }, null, 2),
     };
   } catch (err) {
