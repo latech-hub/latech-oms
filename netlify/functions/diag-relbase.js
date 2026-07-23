@@ -31,12 +31,9 @@ exports.handler = async (event) => {
 
   try {
     const s = sku.toLowerCase();
-    // Probar distintas formas de filtrar por SKU en RelBase.
+    // El parámetro correcto de búsqueda en RelBase es "query".
     const intentos = [
-      `/productos?code=${encodeURIComponent(sku)}`,
-      `/productos?value=${encodeURIComponent(sku)}`,
-      `/productos?search=${encodeURIComponent(sku)}`,
-      `/productos?name=${encodeURIComponent(sku)}`,
+      `/productos?query=${encodeURIComponent(sku)}`,
     ];
     let encontrado = null, via = null, diag = {};
     for (const p of intentos) {
