@@ -31,14 +31,23 @@ exports.handler = async () => {
     let totalCount = null;
 
     if (json) {
-      const lista = json.data || json.productos || [];
-      metaKeys = json.meta ? Object.keys(json.meta) : null;
+      // Detectar dónde viene la lista: probamos varias formas comunes.
+      const lista =
+        (Array.isArray(json.data) && json.data) ||
+        (Array.isArray(json.productos) && json.productos) ||
+        (json.data && Array.isArray(json.data.productos) && json.data.productos) ||
+        (Array.isArray(json.results) && json.results) ||
+        [];
+      metaKeys = json.meta ? Object.keys(json.meta) : Object.keys(json);
       totalCount = json.meta ? json.meta.total_count : null;
       if (Array.isArray(lista) && lista.length) {
         const p = lista[0];
         productKeys = Object.keys(p);
-        // Reportar qué campos parecen de stock (solo nombres), sin valores.
         sampleStockFields = productKeys.filter((k) => /stock|cantidad|quantity|bodega|inventar/i.test(k));
+      } else {
+        // Si no encontramos la lista, reportar las llaves de nivel superior
+        // para ver la forma real de la respuesta (sin valores).
+        productKeys = Object.keys(json);
       }
     }
 
