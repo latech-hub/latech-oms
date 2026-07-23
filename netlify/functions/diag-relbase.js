@@ -51,19 +51,35 @@ exports.handler = async () => {
       }
     }
 
+    let data_type = null, data_obj_keys = null, first_product_keys = null;
+    if (json) {
+      const d = json.data;
+      if (Array.isArray(d)) {
+        data_type = "array(" + d.length + ")";
+        if (d.length) first_product_keys = Object.keys(d[0]);
+      } else if (d && typeof d === "object") {
+        data_type = "object";
+        data_obj_keys = Object.keys(d);
+        for (const k of data_obj_keys) {
+          if (Array.isArray(d[k]) && d[k].length && typeof d[k][0] === "object") {
+            first_product_keys = { via: k, keys: Object.keys(d[k][0]) };
+            break;
+          }
+        }
+      } else {
+        data_type = typeof d;
+      }
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         relbase_auth_status: status,
-        meta_message: json && json.meta ? json.meta.message : null,
-        meta_debug_info: json && json.meta ? json.meta.debug_info : null,
-        company_token_len: company.length,
-        user_token_len: user.length,
         total_productos: totalCount,
-        meta_keys: metaKeys,
-        product_field_keys: productKeys,
-        posibles_campos_stock: sampleStockFields,
+        data_type: data_type,
+        data_obj_keys: data_obj_keys,
+        first_product_keys: first_product_keys,
       }, null, 2),
     };
   } catch (err) {
