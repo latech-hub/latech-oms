@@ -1,0 +1,9 @@
+{
+  "name": "latech-oms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LaTech OMS — middleware que conecta Uber Eats / PedidosYa con RelBase (stock + notas de venta).",
+  "engines": {
+    "node": ">=18"
+  }
+}

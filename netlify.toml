@@ -1,0 +1,10 @@
+# Configuración de Netlify para LaTech OMS
+# El webhook queda disponible en:
+#   https://<sitio>.netlify.app/.netlify/functions/ubereats-webhook
+
+[build]
+  functions = "netlify/functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
