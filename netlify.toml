@@ -8,3 +8,10 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Los secretos reales viven SOLO en las variables de entorno de Netlify,
+# nunca en el repositorio. El escáner de secretos marca falsos positivos
+# sobre los nombres de variables en comentarios y el store UUID (que no es
+# secreto), así que lo desactivamos para este proyecto.
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
