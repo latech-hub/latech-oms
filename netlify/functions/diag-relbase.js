@@ -47,6 +47,10 @@ exports.handler = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         relbase_auth_status: status,
+        meta_message: json && json.meta ? json.meta.message : null,
+        meta_debug_info: json && json.meta ? json.meta.debug_info : null,
+        company_token_len: company.length,
+        user_token_len: user.length,
         total_productos: totalCount,
         meta_keys: metaKeys,
         product_field_keys: productKeys,
