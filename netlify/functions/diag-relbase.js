@@ -51,15 +51,24 @@ exports.handler = async () => {
       }
     }
 
-    // Inspeccionar la estructura de inventarios/stock del primer producto.
+    // Tomar el primer producto de la lista y pedir su DETALLE para ver el stock.
     let sample = null;
     if (json && json.data && Array.isArray(json.data.products) && json.data.products.length) {
-      const p = json.data.products[0];
+      const p0 = json.data.products[0];
+      const detRes = await fetch(`${BASE_URL}/productos/${p0.id}`, {
+        method: "GET",
+        headers: { company, authorization: user, "Content-Type": "application/json" },
+      });
+      const detJson = await detRes.json().catch(() => null);
+      const prod = detJson && detJson.data ? (detJson.data.product || detJson.data) : null;
       sample = {
-        code: p.code,
-        is_inventory: p.is_inventory,
-        inventories_type: Array.isArray(p.inventories) ? "array(" + p.inventories.length + ")" : typeof p.inventories,
-        inventory_item: Array.isArray(p.inventories) && p.inventories.length ? p.inventories[0] : null,
+        detalle_status: detRes.status,
+        code: p0.code,
+        is_inventory: p0.is_inventory,
+        detalle_top_keys: detJson ? Object.keys(detJson) : null,
+        producto_keys: prod ? Object.keys(prod) : null,
+        inventories_type: prod && Array.isArray(prod.inventories) ? "array(" + prod.inventories.length + ")" : (prod ? typeof prod.inventories : null),
+        inventory_item: prod && Array.isArray(prod.inventories) && prod.inventories.length ? prod.inventories[0] : null,
       };
     }
 
