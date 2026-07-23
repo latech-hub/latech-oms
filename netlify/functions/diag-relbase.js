@@ -30,28 +30,33 @@ exports.handler = async (event) => {
   }
 
   try {
+    const s = sku.toLowerCase();
     // Probar distintas formas de filtrar por SKU en RelBase.
     const intentos = [
       `/productos?code=${encodeURIComponent(sku)}`,
       `/productos?value=${encodeURIComponent(sku)}`,
       `/productos?search=${encodeURIComponent(sku)}`,
-      `/productos?barcode=${encodeURIComponent(sku)}`,
+      `/productos?name=${encodeURIComponent(sku)}`,
     ];
-    let encontrado = null, via = null, statuses = {};
+    let encontrado = null, via = null, diag = {};
     for (const p of intentos) {
       const res = await get(p);
-      statuses[p] = res.status;
       const list = productsOf(res.json);
+      const total = res.json && res.json.meta ? res.json.meta.total_count : null;
+      diag[p] = { status: res.status, total_count: total, returned: list.length,
+        sample: list.slice(0, 3).map((x) => ({ code: x.code, name: x.name })) };
       const match = list.find(
-        (x) => (x.code && x.code.toLowerCase() === sku.toLowerCase()) ||
-               (x.barcode && String(x.barcode).toLowerCase() === sku.toLowerCase())
-      ) || (list.length === 1 ? list[0] : null);
+        (x) => (x.code && x.code.toLowerCase() === s) ||
+               (x.barcode && String(x.barcode).toLowerCase() === s) ||
+               (x.code && x.code.toLowerCase().includes(s)) ||
+               (x.name && x.name.toLowerCase().includes(s))
+      );
       if (match) { encontrado = match; via = p; break; }
     }
 
     if (!encontrado) {
       return { statusCode: 200, headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sku, encontrado: false, statuses }, null, 2) };
+        body: JSON.stringify({ sku, encontrado: false, diag }, null, 2) };
     }
 
     // Pedir el detalle para ver inventarios/variantes con stock.
