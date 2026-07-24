@@ -1,52 +1,40 @@
 // ============================================================
 // diag-uber.js — Diagnóstico TEMPORAL de la conexión con Uber (sandbox).
-// Prueba varios hosts de auth para descubrir cuál responde. Sin exponer token.
-// Se elimina antes de producción.
+// Usa el módulo lib/ubereats (credenciales de test + auth.uber.com).
+// No expone el token. Se elimina antes de producción.
 // ============================================================
 
+const uber = require("./lib/ubereats");
+
 exports.handler = async () => {
-  const clientId = process.env.UBEREATS_CLIENT_ID;
-  const clientSecret = process.env.UBEREATS_CLIENT_SECRET;
-  const out = { tiene_credenciales: Boolean(clientId && clientSecret) };
-  if (!clientId || !clientSecret) {
-    return { statusCode: 200, body: JSON.stringify(out, null, 2) };
-  }
-
-  const scopes = "eats.pos_provisioning eats.order eats.store";
-  const authHosts = [
-    "https://sandbox-auth.uber.com/oauth/v2/token",
-    "https://auth.uber.com/oauth/v2/token",
-    "https://login.uber.com/oauth/v2/token",
-  ];
-
-  out.pruebas = {};
-  for (const url of authHosts) {
-    const r = { };
+  const out = { env: uber.ENV, api: uber.API, auth_url: uber.AUTH_URL };
+  try {
+    let token = null;
     try {
-      const body = new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: "client_credentials",
-        scope: scopes,
-      });
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      r.status = res.status;
-      const t = await res.text();
-      // Reportar si obtuvo token (sin exponerlo) o el error devuelto.
-      let j = null; try { j = JSON.parse(t); } catch {}
-      r.token_ok = Boolean(j && j.access_token);
-      if (!r.token_ok) r.respuesta = (t || "").slice(0, 300);
-      if (j && j.scope) r.scope_devuelto = j.scope;
+      token = await uber.getAccessToken();
+      out.token_ok = Boolean(token);
     } catch (e) {
-      r.error_red = e.message;
+      out.token_ok = false;
+      out.token_error = e.message;
+      return { statusCode: 200, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(out, null, 2) };
     }
-    out.pruebas[url] = r;
-  }
 
-  return { statusCode: 200, headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(out, null, 2) };
+    // Listar tiendas provisionadas a la app (scope eats.store).
+    const stores = await uber.getStores();
+    out.get_stores_status = stores.status;
+    const list = stores.json && (stores.json.stores || stores.json.data || stores.json);
+    out.stores_count = Array.isArray(list) ? list.length : (list ? "n/a" : 0);
+    out.stores_sample_keys =
+      Array.isArray(list) && list.length && typeof list[0] === "object"
+        ? Object.keys(list[0])
+        : null;
+    if (!stores.ok) out.get_stores_error = (stores.text || "").slice(0, 300);
+
+    return { statusCode: 200, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(out, null, 2) };
+  } catch (err) {
+    out.error = err.message;
+    return { statusCode: 500, body: JSON.stringify(out, null, 2) };
+  }
 };
