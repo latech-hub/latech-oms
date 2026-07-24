@@ -51,10 +51,11 @@ exports.handler = async (event) => {
       // Creamos la nota de venta con los productos definitivos.
       const resultado = await procesarResolucionUber(resourceHref);
       console.log("Sustitución resuelta:", JSON.stringify(resultado));
-    } else if (tipo === "orders.cancel") {
-      // [CONFIRMAR] Manejo de cancelación: si ya se creó nota de venta,
+    } else if (tipo === "orders.cancel" || tipo === "orders.failure") {
+      // Cancelación o fallo de la orden (p. ej. el cliente canceló durante la
+      // resolución de sustitución). [CONFIRMAR] Si ya se creó nota de venta,
       // evaluar nota de crédito / reposición de stock en RelBase.
-      console.log("Orden cancelada por Uber:", payload.meta?.resource_id);
+      console.log("Orden cancelada/fallida por Uber:", tipo, payload.meta?.resource_id);
     } else {
       console.log("Evento no manejado:", tipo);
     }
