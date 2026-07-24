@@ -14,14 +14,29 @@
 const crypto = require("crypto");
 
 const ENV = (process.env.UBER_ENV || "sandbox").toLowerCase();
-const AUTH_URL =
-  ENV === "production"
-    ? "https://auth.uber.com/oauth/v2/token"
-    : "https://sandbox-auth.uber.com/oauth/v2/token";
+// El host de autenticación es el mismo para sandbox y producción.
+// Lo que cambia es el host de API y QUÉ credenciales se usan (test vs prod).
+const AUTH_URL = "https://auth.uber.com/oauth/v2/token";
 const API =
   ENV === "production" ? "https://api.uber.com" : "https://test-api.uber.com";
 
 const SCOPES = "eats.pos_provisioning eats.order eats.store";
+
+// Devuelve las credenciales según el entorno:
+//   sandbox    -> app de TEST  (UBEREATS_TEST_CLIENT_ID / _SECRET)
+//   production -> app de PROD  (UBEREATS_CLIENT_ID / _SECRET)
+function credenciales() {
+  if (ENV === "production") {
+    return {
+      clientId: process.env.UBEREATS_CLIENT_ID,
+      clientSecret: process.env.UBEREATS_CLIENT_SECRET,
+    };
+  }
+  return {
+    clientId: process.env.UBEREATS_TEST_CLIENT_ID,
+    clientSecret: process.env.UBEREATS_TEST_CLIENT_SECRET,
+  };
+}
 
 // ------------------------------------------------------------
 // Autenticación OAuth 2.0 (client_credentials). Cachea el token.
@@ -33,10 +48,9 @@ async function getAccessToken() {
   const now = Date.now();
   if (_token && now < _tokenExp - 60000) return _token;
 
-  const clientId = process.env.UBEREATS_CLIENT_ID;
-  const clientSecret = process.env.UBEREATS_CLIENT_SECRET;
+  const { clientId, clientSecret } = credenciales();
   if (!clientId || !clientSecret) {
-    throw new Error("Faltan UBEREATS_CLIENT_ID / UBEREATS_CLIENT_SECRET.");
+    throw new Error(`Faltan credenciales Uber para entorno "${ENV}".`);
   }
 
   const body = new URLSearchParams({
@@ -80,7 +94,7 @@ async function api(method, path, jsonBody) {
 // Seguridad: verifica la firma X-Uber-Signature del webhook.
 // ------------------------------------------------------------
 function verificarFirma(rawBody, firmaHeader) {
-  const clientSecret = process.env.UBEREATS_CLIENT_SECRET;
+  const { clientSecret } = credenciales();
   if (!clientSecret || !firmaHeader) return false;
   const esperado = crypto
     .createHmac("sha256", clientSecret)
