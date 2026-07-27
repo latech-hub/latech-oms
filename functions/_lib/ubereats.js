@@ -61,17 +61,30 @@ export function createUber(env) {
     return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
-  // Verifica la firma X-Uber-Signature (async).
-  async function verificarFirma(rawBody, firmaHeader) {
+  // Claves con las que Uber puede firmar el webhook. El panel entrega una
+  // "Signing Key" dedicada (y una secundaria para rotación). Se incluye el
+  // client_secret como respaldo por compatibilidad.
+  function clavesFirma() {
     const { secret } = creds();
-    if (!secret || !firmaHeader) return false;
-    const esperado = await hmacHex(secret, rawBody);
+    return [
+      env.UBEREATS_WEBHOOK_SIGNING_KEY,
+      env.UBEREATS_WEBHOOK_SIGNING_KEY_2,
+      secret,
+    ].filter(Boolean);
+  }
+
+  // Verifica la firma X-Uber-Signature (async) contra cualquiera de las claves.
+  async function verificarFirma(rawBody, firmaHeader) {
+    if (!firmaHeader) return false;
     const recibido = String(firmaHeader).toLowerCase();
-    // Comparación de longitud constante simple.
-    if (esperado.length !== recibido.length) return false;
-    let diff = 0;
-    for (let i = 0; i < esperado.length; i++) diff |= esperado.charCodeAt(i) ^ recibido.charCodeAt(i);
-    return diff === 0;
+    for (const key of clavesFirma()) {
+      const esperado = await hmacHex(key, rawBody);
+      if (esperado.length !== recibido.length) continue;
+      let diff = 0;
+      for (let i = 0; i < esperado.length; i++) diff |= esperado.charCodeAt(i) ^ recibido.charCodeAt(i);
+      if (diff === 0) return true;
+    }
+    return false;
   }
 
   async function api(method, path, jsonBody) {
