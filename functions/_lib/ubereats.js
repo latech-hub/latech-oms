@@ -153,11 +153,16 @@ export function createUber(env) {
   async function getStores() {
     return api("GET", `/v1/eats/stores`);
   }
+  // OJO: el endpoint de estado usa "store" SINGULAR (confirmado en vivo: el
+  // plural /stores/{id}/status devuelve 404).
   async function getEstadoTienda(storeId) {
-    return api("GET", `/v1/eats/stores/${storeId}/status`);
+    return api("GET", `/v1/eats/store/${storeId}/status`);
   }
-  async function setEstadoTienda(storeId, status, reason) {
-    return api("POST", `/v1/eats/stores/${storeId}/status`, { status, reason });
+  async function setEstadoTienda(storeId, status, offlineReason) {
+    return api("POST", `/v1/eats/store/${storeId}/status`, {
+      status, // ONLINE | OFFLINE | PAUSED
+      ...(offlineReason ? { offline_reason: offlineReason } : {}),
+    });
   }
   async function updatePrepTime(storeId, minutos) {
     return api("POST", `/v1/eats/stores/${storeId}/prep_time`, { prep_time_minutes: minutos }); // [CONFIRMAR]
