@@ -78,15 +78,17 @@ export function createRelbase(env) {
     if (!res.ok) throw new Error(`RelBase stock ${res.status}: ${await res.text()}`);
     const json = await res.json();
     const data = json.data || json;
+    // RelBase devuelve { stocks: [{ ware_house_id, current_stock, ... }] }.
     let bodegas = [];
     if (Array.isArray(data)) bodegas = data;
+    else if (Array.isArray(data.stocks)) bodegas = data.stocks;
     else if (Array.isArray(data.warehouses)) bodegas = data.warehouses;
     else if (Array.isArray(data.bodegas)) bodegas = data.bodegas;
     else if (Array.isArray(data.stock)) bodegas = data.stock;
     let total = 0;
     let enBodega = null;
     for (const b of bodegas) {
-      const s = b.stock ?? b.quantity ?? b.cantidad ?? b.available ?? 0;
+      const s = b.current_stock ?? b.stock ?? b.quantity ?? b.cantidad ?? b.available ?? 0;
       total += Number(s) || 0;
       const bid = b.ware_house_id ?? b.warehouse_id ?? b.id;
       if (Number(bid) === CFG.wareHouseId) enBodega = Number(s) || 0;
