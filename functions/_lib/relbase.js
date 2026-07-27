@@ -104,12 +104,14 @@ export function createRelbase(env) {
   //   - label_value = "N° pedido" (nombre clienta + código Uber)
   //   - mnt_bruto = true (los precios de Uber vienen con IVA incluido)
   //   - continuous / addon_ecommerce = true (como las notas reales)
-  //   - paid: por defecto NO se marca pagada (queda pendiente, igual que hoy);
-  //     se puede forzar con RELBASE_MARCAR_PAGADO=1.
+  //   - paid: por defecto se marca PAGADA (Uber cobra al cliente y paga al
+  //     comercio). El código de pedido queda en label_value para conciliar
+  //     con el informe semanal de Uber. Se puede dejar pendiente con
+  //     RELBASE_MARCAR_PAGADO=0.
   // lineas: [{ product_id, quantity, price, tax_affected? }]
   async function crearNotaVenta({ lineas, numeroPedido, comentario }) {
     const hoy = new Date().toISOString().slice(0, 10);
-    const marcarPagado = env.RELBASE_MARCAR_PAGADO === "1";
+    const marcarPagado = env.RELBASE_MARCAR_PAGADO !== "0";
     const payload = {
       type_document: CFG.typeDocumentNotaVenta,
       type_document_sii: CFG.typeDocumentSii,
