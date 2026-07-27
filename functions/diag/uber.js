@@ -20,8 +20,7 @@ export async function onRequest(context) {
   if (!id || !secret) { out.error = "faltan credenciales de test en env"; return json(out); }
 
   const hosts = [
-    "https://auth.uber.com/oauth/v2/token",
-    "https://sandbox-auth.uber.com/oauth/v2/token",
+    "https://sandbox-login.uber.com/oauth/v2/token",
     "https://login.uber.com/oauth/v2/token",
   ];
   for (const url of hosts) {
