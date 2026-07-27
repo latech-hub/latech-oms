@@ -30,7 +30,7 @@ export async function onRequest(context) {
       const body = new URLSearchParams({
         client_id: id, client_secret: secret,
         grant_type: "client_credentials",
-        scope: "eats.pos_provisioning eats.order eats.store",
+        scope: "eats.order eats.store",
       });
       const res = await fetch(url, {
         method: "POST",
