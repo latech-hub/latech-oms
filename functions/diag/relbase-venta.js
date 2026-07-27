@@ -44,7 +44,7 @@ export async function onRequest(context) {
     const preview = {
       sku,
       producto: { id: prod.id, code: prod.code, name: prod.name },
-      stock: { total: stock.total, enBodega: stock.enBodega },
+      stock: { total: stock.total, enBodega: stock.enBodega, raw: stock.raw },
       config: rb.CFG,
       linea: { product_id: prod.id, quantity: qty, price },
     };
