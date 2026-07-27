@@ -22,7 +22,23 @@ export async function onRequest(context) {
 
   try {
     const prod = await rb.buscarProductoPorSku(sku);
-    if (!prod) return json({ error: `producto no encontrado para SKU ${sku}` });
+    if (!prod) {
+      // Debug: volcar lo que devuelve la búsqueda para entender la estructura.
+      const res = await fetch(`https://api.relbase.cl/api/v1/productos?query=${encodeURIComponent(sku)}`, {
+        headers: {
+          company: context.env.RELBASE_COMPANY_TOKEN,
+          authorization: context.env.RELBASE_USER_TOKEN,
+          "Content-Type": "application/json",
+        },
+      });
+      const raw = await res.json().catch(() => null);
+      const arr = raw?.data?.products || raw?.data || [];
+      const resumen = (Array.isArray(arr) ? arr : []).map((p) => ({
+        id: p.id, code: p.code, name: p.name,
+        variants: (p.variants || p.variations || []).map((v) => ({ id: v.id, code: v.code, name: v.name })),
+      }));
+      return json({ error: `producto no encontrado para SKU ${sku}`, status: res.status, encontrados: resumen.length, resumen });
+    }
     const stock = await rb.getStock(prod.id);
 
     const preview = {
