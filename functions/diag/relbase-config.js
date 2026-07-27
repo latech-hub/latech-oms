@@ -1,8 +1,8 @@
 // functions/diag/relbase-config.js — Diagnóstico TEMPORAL RelBase config.
 // URL: /diag/relbase-config
-// Lee de la cuenta: tipos de documento que puede emitir el usuario (para
-// hallar el id de "nota de venta"), canales de venta, bodegas y formas de
-// pago. Con esos IDs se configura la creación de la nota de venta.
+// Recorre todas las páginas de canales y formas de pago y filtra los que
+// contengan "uber". Trae tipos de documento, bodegas y algunos clientes
+// para elegir un cliente por defecto de la nota de venta.
 // No expone tokens. Quitar antes de prod.
 
 const BASE = "https://api.relbase.cl/api/v1";
@@ -23,20 +23,51 @@ export async function onRequest(context) {
   }
 
   async function get(path) {
-    try {
-      const res = await fetch(`${BASE}${path}`, { headers });
-      const t = await res.text();
-      let j = null; try { j = JSON.parse(t); } catch {}
-      return { status: res.status, data: j ?? t };
-    } catch (e) {
-      return { error: e.message };
+    const res = await fetch(`${BASE}${path}`, { headers });
+    const t = await res.text();
+    let j = null; try { j = JSON.parse(t); } catch {}
+    return { status: res.status, json: j, text: t };
+  }
+
+  // Recorre todas las páginas de un recurso y devuelve el arreglo interno.
+  async function todos(path, key) {
+    let page = 1, all = [], guard = 0;
+    while (guard++ < 10) {
+      const sep = path.includes("?") ? "&" : "?";
+      const r = await get(`${path}${sep}page=${page}`);
+      const d = r.json && r.json.data ? r.json.data : {};
+      const arr = d[key] || [];
+      all = all.concat(arr);
+      const meta = r.json && r.json.meta ? r.json.meta : {};
+      const total = meta.total_pages || 1;
+      if (page >= total) break;
+      page++;
     }
+    return all;
   }
 
   const out = {};
-  out.documentos = await get("/usuarios/documentos");
-  out.canal_ventas = await get("/canal_ventas");
-  out.bodegas = await get("/bodegas");
-  out.forma_pagos = await get("/forma_pagos");
+
+  const docs = await get("/usuarios/documentos");
+  out.type_documents = (docs.json?.data?.type_documents || []).map((d) => ({ id: d.id, name: d.name }));
+
+  const bodegas = await get("/bodegas");
+  out.bodegas = (bodegas.json?.data?.warehouses || []).map((b) => ({ id: b.id, name: b.name }));
+
+  const canales = await todos("/canal_ventas", "channels");
+  out.canales_uber = canales.filter((c) => /uber/i.test(c.name)).map((c) => ({ id: c.id, name: c.name, active: c.active }));
+  out.canales_total = canales.length;
+
+  const pagos = await todos("/forma_pagos", "type_payments");
+  out.pagos_uber = pagos.filter((p) => /uber/i.test(p.name)).map((p) => ({ id: p.id, name: p.name }));
+  out.pagos_total = pagos.length;
+
+  // Primeros clientes para elegir uno por defecto (consumidor final).
+  const clientes = await get("/clientes");
+  const cl = clientes.json?.data?.customers || clientes.json?.data?.clients || [];
+  out.clientes_muestra = cl.slice(0, 10).map((c) => ({
+    id: c.id, name: c.name || c.business_name || c.razon_social, rut: c.rut,
+  }));
+
   return json(out);
 }
