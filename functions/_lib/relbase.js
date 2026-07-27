@@ -20,6 +20,9 @@ const BASE_URL = "https://api.relbase.cl/api/v1";
 export function createRelbase(env) {
   const CFG = {
     typeDocumentNotaVenta: Number(env.RELBASE_NOTA_VENTA_TYPE || 1001),
+    // Documento tributario en que se factura la nota de venta (39 = Boleta
+    // electrónica, 33 = Factura). Uber = consumidor final => boleta.
+    typeDocumentSii: Number(env.RELBASE_TYPE_DOCUMENT_SII || 39),
     wareHouseId: Number(env.RELBASE_WAREHOUSE_ID || 2943),
     channelId: Number(env.RELBASE_UBER_CHANNEL_ID || 4413),
     paymentId: Number(env.RELBASE_UBER_PAYMENT_ID || 19833),
@@ -102,6 +105,7 @@ export function createRelbase(env) {
     const hoy = new Date().toISOString().slice(0, 10);
     const payload = {
       type_document: CFG.typeDocumentNotaVenta,
+      type_document_sii: CFG.typeDocumentSii,
       start_date: hoy,
       end_date: hoy,
       channel_id: CFG.channelId,
