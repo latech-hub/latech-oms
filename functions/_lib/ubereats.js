@@ -8,7 +8,10 @@ export function createUber(env) {
   const ENV = (env.UBER_ENV || "sandbox").toLowerCase();
   const AUTH_URL = "https://auth.uber.com/oauth/v2/token"; // mismo para sandbox y prod
   const API = ENV === "production" ? "https://api.uber.com" : "https://test-api.uber.com";
-  const SCOPES = "eats.pos_provisioning eats.order eats.store";
+  // El token de aplicación (client_credentials) SOLO admite scopes de ese
+  // grant type: eats.order y eats.store. El scope eats.pos_provisioning usa
+  // grant type authorization_code (token de usuario) y va en un flujo aparte.
+  const SCOPES = "eats.order eats.store";
 
   function creds() {
     if (ENV === "production") {
