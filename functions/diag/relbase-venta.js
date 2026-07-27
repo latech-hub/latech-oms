@@ -55,7 +55,7 @@ export async function onRequest(context) {
 
     const nota = await rb.crearNotaVenta({
       lineas: [{ product_id: prod.id, quantity: qty, price }],
-      comentario: "PRUEBA LaTech OMS (anular)",
+      numeroPedido: "PRUEBA LaTech   TEST1",
     });
     return json({ modo: "creada", ...preview, respuesta: nota });
   } catch (e) {
