@@ -100,9 +100,16 @@ export function createRelbase(env) {
   }
 
   // Crea la Nota de venta (POST /dtes, type_document 1001).
+  // Espejo exacto del proceso manual de Uber en RelBase:
+  //   - label_value = "N° pedido" (nombre clienta + código Uber)
+  //   - mnt_bruto = true (los precios de Uber vienen con IVA incluido)
+  //   - continuous / addon_ecommerce = true (como las notas reales)
+  //   - paid: por defecto NO se marca pagada (queda pendiente, igual que hoy);
+  //     se puede forzar con RELBASE_MARCAR_PAGADO=1.
   // lineas: [{ product_id, quantity, price, tax_affected? }]
-  async function crearNotaVenta({ lineas, comentario, montoPagado }) {
+  async function crearNotaVenta({ lineas, numeroPedido, comentario }) {
     const hoy = new Date().toISOString().slice(0, 10);
+    const marcarPagado = env.RELBASE_MARCAR_PAGADO === "1";
     const payload = {
       type_document: CFG.typeDocumentNotaVenta,
       type_document_sii: CFG.typeDocumentSii,
@@ -111,8 +118,12 @@ export function createRelbase(env) {
       channel_id: CFG.channelId,
       type_payment_id: CFG.paymentId,
       ware_house_id: CFG.wareHouseId,
-      paid: true,
-      comment: comentario || "Orden Uber Eats (LaTech OMS)",
+      mnt_bruto: true,
+      continuous: true,
+      addon_ecommerce: true,
+      paid: marcarPagado,
+      label_value: numeroPedido || "",
+      comment: comentario || "",
       products: (lineas || []).map((l) => ({
         product_id: l.product_id,
         quantity: l.quantity,
@@ -121,7 +132,6 @@ export function createRelbase(env) {
       })),
     };
     if (CFG.customerId) payload.customer_id = CFG.customerId;
-    if (montoPagado != null) payload.amount_paid = montoPagado;
 
     const res = await rb(`/dtes`, { method: "POST", body: JSON.stringify(payload) });
     const text = await res.text();

@@ -17,6 +17,15 @@ export function createOrders(env, uber, relbase) {
     }));
   }
 
+  // Arma el "N° pedido" como en el proceso manual: "Nombre I.   CÓDIGO".
+  function numeroPedido(orden) {
+    const e = (orden && (orden.eater || (orden.eaters && orden.eaters[0]))) || {};
+    const nombre = e.first_name || e.name || orden.eater_name || "";
+    const ini = e.last_name ? ` ${String(e.last_name).trim().charAt(0)}.` : "";
+    const codigo = orden.display_id || orden.id || "";
+    return `${nombre}${ini}   ${codigo}`.trim();
+  }
+
   // Resuelve cada línea contra RelBase: producto + stock disponible.
   async function resolverLineas(lineas) {
     const resueltas = [];
@@ -60,7 +69,7 @@ export function createOrders(env, uber, relbase) {
     await uber.aceptarOrden(orderId);
     const nota = await relbase.crearNotaVenta({
       lineas: resueltas,
-      comentario: `Uber Eats #${orden.display_id || orderId}`,
+      numeroPedido: numeroPedido(orden),
     });
     return { estado: "aceptada", orderId, notaVenta: nota?.data?.id || nota?.id };
   }
@@ -75,7 +84,7 @@ export function createOrders(env, uber, relbase) {
     }
     const nota = await relbase.crearNotaVenta({
       lineas: resueltas,
-      comentario: `Uber Eats #${orden.display_id || orden.id} (sustitución)`,
+      numeroPedido: numeroPedido(orden),
     });
     return { estado: "aceptada_con_sustitucion", orderId: orden.id, notaVenta: nota?.data?.id || nota?.id };
   }
