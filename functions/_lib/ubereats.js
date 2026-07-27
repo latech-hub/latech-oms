@@ -6,7 +6,11 @@
 
 export function createUber(env) {
   const ENV = (env.UBER_ENV || "sandbox").toLowerCase();
-  const AUTH_URL = "https://auth.uber.com/oauth/v2/token"; // mismo para sandbox y prod
+  // Host de OAuth por entorno (confirmado por Uber GTS, caso #263740):
+  //   sandbox/test -> sandbox-login.uber.com ; producción -> login.uber.com
+  const AUTH_URL = ENV === "production"
+    ? "https://login.uber.com/oauth/v2/token"
+    : "https://sandbox-login.uber.com/oauth/v2/token";
   const API = ENV === "production" ? "https://api.uber.com" : "https://test-api.uber.com";
   // El token de aplicación (client_credentials) SOLO admite scopes de ese
   // grant type: eats.order y eats.store. El scope eats.pos_provisioning usa
