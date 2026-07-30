@@ -91,19 +91,27 @@ export async function onRequest(context) {
   const r = rutas(id)[action];
   if (!r) return json({ error: `action invalida: ${action}` });
 
-  // Para "resolve": leer la orden y armar un fulfillment_issue real
-  // (OUT_OF_ITEM + REMOVE_ITEM sobre el 1er item del carro).
+  // Para "resolve": leer la orden y armar un fulfillment_issue real sobre el
+  // 1er item. Modo configurable con &mode=found|remove|partial (default found).
+  // - found:   FOUND_ITEM (item disponible, no cancela)  -> 200 esperado
+  // - remove:  OUT_OF_ITEM + REMOVE_ITEM (cancela si es único item)
+  // - partial: PARTIAL_AVAILABILITY (deja 1 unidad disponible)
   if (action === "resolve") {
+    const mode = url.searchParams.get("mode") || "found";
     const ord = await call("GET", `/v2/eats/order/${id}`);
     const item = ord.body?.cart?.items?.[0];
     const cartItemId = item?.instance_id || item?.id;
-    out.item_usado = { cart_item_id: cartItemId, title: item?.title };
+    out.item_usado = { cart_item_id: cartItemId, title: item?.title, mode };
     if (cartItemId) {
-      r.new.body = {
-        fulfillment_issues: [
-          { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } },
-        ],
-      };
+      let issue;
+      if (mode === "remove") {
+        issue = { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } };
+      } else if (mode === "partial") {
+        issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: { items_available: { quantity: 1 } } };
+      } else {
+        issue = { issue_type: "FOUND_ITEM", item: { cart_item_id: cartItemId } };
+      }
+      r.new.body = { fulfillment_issues: [issue] };
     }
   }
 
