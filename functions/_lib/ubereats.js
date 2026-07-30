@@ -108,26 +108,39 @@ export function createUber(env) {
     if (!res.ok) throw new Error(`Uber getOrder ${res.status}: ${await res.text()}`);
     return res.json();
   }
-  async function aceptarOrden(orderId) {
-    return (await api("POST", `/v1/eats/orders/${orderId}/accept_pos_order`, {
-      reason: "Aceptada automáticamente por LaTech OMS",
+  // Rutas confirmadas en vivo (Order Fulfillment API v1.0.0). La familia
+  // correcta es /v1/delivery/order/{id}/... ; las viejas /v1/eats/orders/...
+  // devuelven 404 en esta cuenta (tienda tipo RETAIL).
+  async function aceptarOrden(orderId, opciones = {}) {
+    return (await api("POST", `/v1/delivery/order/${orderId}/accept`, {
+      accepted_by: opciones.accepted_by || "LaTech OMS",
+      ...(opciones.ready_for_pickup_time ? { ready_for_pickup_time: opciones.ready_for_pickup_time } : {}),
+      ...(opciones.external_reference_id ? { external_reference_id: opciones.external_reference_id } : {}),
     })).ok;
   }
   async function rechazarOrden(orderId, motivo) {
-    return (await api("POST", `/v1/eats/orders/${orderId}/deny_pos_order`, {
-      reason: { explanation: motivo || "No se puede inyectar la orden en el POS" },
+    return (await api("POST", `/v1/delivery/order/${orderId}/deny`, {
+      deny_reason: {
+        info: motivo || "No se puede inyectar la orden en el POS",
+        type: "ITEM_ISSUE",
+      },
     })).ok;
   }
   async function cancelarOrden(orderId, motivo) {
-    return (await api("POST", `/v1/eats/orders/${orderId}/cancel`, {
-      reason: motivo || "Cancelada por el comercio",
-    })).ok; // [CONFIRMAR ruta]
+    return (await api("POST", `/v1/delivery/order/${orderId}/cancel`, {
+      cancellation_reason: {
+        info: motivo || "Cancelada por el comercio",
+        type: "ITEM_ISSUE",
+      },
+    })).ok;
   }
-  async function resolverFulfillment(orderId, payload) {
-    return (await api("POST", `/v1/eats/orders/${orderId}/fulfillment_issues/resolve`, payload || {})).ok; // [CONFIRMAR]
+  async function resolverFulfillment(orderId, fulfillmentIssues) {
+    return (await api("POST", `/v1/delivery/order/${orderId}/resolve-fulfillment-issues`, {
+      fulfillment_issues: fulfillmentIssues || [],
+    })).ok;
   }
   async function marcarListo(orderId) {
-    return (await api("POST", `/v1/eats/orders/${orderId}/restaurant/ready`, {})).ok; // [CONFIRMAR]
+    return (await api("POST", `/v1/delivery/order/${orderId}/ready`, {})).ok;
   }
 
   // ---- eats.pos_provisioning ----
