@@ -99,15 +99,26 @@ export async function onRequest(context) {
   if (action === "resolve") {
     const mode = url.searchParams.get("mode") || "found";
     const ord = await call("GET", `/v2/eats/order/${id}`);
-    const item = ord.body?.cart?.items?.[0];
+    const cart = ord.body?.cart || {};
+    // El item puede estar en cart.items[0] o, si ya hay un issue abierto,
+    // en cart.fulfillment_issues[0].root_item.
+    const item = cart.items?.[0] || cart.fulfillment_issues?.[0]?.root_item;
     const cartItemId = item?.instance_id || item?.id;
-    out.item_usado = { cart_item_id: cartItemId, title: item?.title, mode };
+    const externalId = item?.id;
+    out.item_usado = { cart_item_id: cartItemId, external_id: externalId, title: item?.title, mode };
     if (cartItemId) {
       let issue;
       if (mode === "remove") {
         issue = { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } };
       } else if (mode === "partial") {
         issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: { items_available: { quantity: 1 } } };
+      } else if (mode === "replace") {
+        issue = {
+          issue_type: "OUT_OF_ITEM",
+          action_type: "REPLACE_FOR_ME",
+          item: { cart_item_id: cartItemId },
+          item_substitute: { id: externalId, quantity: 1 },
+        };
       } else {
         issue = { issue_type: "FOUND_ITEM", item: { cart_item_id: cartItemId } };
       }
