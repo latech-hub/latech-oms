@@ -111,13 +111,13 @@ export async function onRequest(context) {
       if (mode === "remove") {
         issue = { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } };
       } else if (mode === "partial") {
-        issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: { items_available: { quantity: 1 } } };
+        issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: { items_available: { in_sellable_unit: { quantity: 1 } } } };
       } else if (mode === "replace") {
         issue = {
           issue_type: "OUT_OF_ITEM",
           action_type: "REPLACE_FOR_ME",
           item: { cart_item_id: cartItemId },
-          item_substitute: { id: externalId, quantity: 1 },
+          item_substitute: { id: externalId, quantity: { in_sellable_unit: { quantity: 1 } } },
         };
       } else {
         issue = { issue_type: "FOUND_ITEM", item: { cart_item_id: cartItemId } };
