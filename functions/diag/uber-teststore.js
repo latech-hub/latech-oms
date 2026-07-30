@@ -41,5 +41,9 @@ export async function onRequest(context) {
   out["GET pos_data"] = await get(`/v1/eats/stores/${STORE_ID}/pos_data`);
   out["GET status"] = await get(`/v1/eats/store/${STORE_ID}/status`);
   out["GET created-orders"] = await get(`/v1/eats/stores/${STORE_ID}/created-orders`);
+  // Probar rutas de menú (para saber si la tienda tiene productos).
+  out["GET menus (v1 plural)"] = await get(`/v1/eats/stores/${STORE_ID}/menus`);
+  out["GET menu (v1 singular)"] = await get(`/v1/eats/stores/${STORE_ID}/menu`);
+  out["GET menus (v2)"] = await get(`/v2/eats/stores/${STORE_ID}/menus`);
   return json(out);
 }
