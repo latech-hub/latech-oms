@@ -106,21 +106,34 @@ export async function onRequest(context) {
     const cartItemId = item?.instance_id || item?.id;
     const externalId = item?.id;
     out.item_usado = { cart_item_id: cartItemId, external_id: externalId, title: item?.title, mode };
+    // Cantidad "1 unidad" según el esquema oficial: amount + in_sellable_unit
+    // con measurement_unit COUNT y amount_e5 (=cantidad * 10^5).
+    const disponibilidad = (n) => ({
+      items_available: {
+        amount: n,
+        in_sellable_unit: {
+          measurement_unit: { measurement_type: "MEASUREMENT_TYPE_COUNT" },
+          amount_e5: n * 100000,
+        },
+      },
+    });
     if (cartItemId) {
       let issue;
       if (mode === "remove") {
         issue = { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } };
       } else if (mode === "partial") {
-        issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: { items_available: { in_sellable_unit: { quantity: 1 } } } };
+        issue = { issue_type: "PARTIAL_AVAILABILITY", item: { cart_item_id: cartItemId }, item_availability: disponibilidad(1) };
       } else if (mode === "replace") {
         issue = {
           issue_type: "OUT_OF_ITEM",
           action_type: "REPLACE_FOR_ME",
           item: { cart_item_id: cartItemId },
-          item_substitute: { id: externalId, quantity: { in_sellable_unit: { quantity: 1 } } },
+          item_substitute: { id: externalId },
+          item_availability: disponibilidad(1),
         };
       } else {
-        issue = { issue_type: "FOUND_ITEM", item: { cart_item_id: cartItemId } };
+        // found: item disponible, sin cancelar
+        issue = { issue_type: "FOUND_ITEM", item: { cart_item_id: cartItemId }, item_availability: disponibilidad(1) };
       }
       r.new.body = { fulfillment_issues: [issue] };
     }
