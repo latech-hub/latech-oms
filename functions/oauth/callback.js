@@ -5,7 +5,8 @@
 // aquí con ?code -> intercambiamos por token de usuario -> activamos POS.
 // TEMPORAL para la validación; endurecer/quitar antes de prod.
 
-const STORE_ID = "b2592fd4-7547-5484-b303-da171c44aa33";
+// Tienda de PRUEBA provisionada por Uber (integrada con nuestra app).
+const STORE_ID = "896c28ce-be6c-4e66-a7fd-2fcdf35b7e35";
 const PARTNER_STORE_ID = "CS43880";
 const AUTH = "https://sandbox-login.uber.com/oauth/v2/token";
 const API = "https://test-api.uber.com";
@@ -53,15 +54,14 @@ export async function onRequestGet(context) {
   // 2) Ver estado actual de pos_data.
   out.activacion["GET pos_data"] = await call("GET", `/v1/eats/stores/${STORE_ID}/pos_data`);
 
-  // 3) Intentar ACTIVAR la integración (probar métodos comunes; el que dé 200/204 es el bueno).
-  const payload = {
-    integrator_store_id: PARTNER_STORE_ID,
-    pos_integration_enabled: true,
-    integration_enabled: true,
-  };
-  out.activacion["PUT pos_data"] = await call("PUT", `/v1/eats/stores/${STORE_ID}/pos_data`, payload);
-  if (![200, 204].includes(out.activacion["PUT pos_data"].status)) {
-    out.activacion["POST pos_data"] = await call("POST", `/v1/eats/stores/${STORE_ID}/pos_data`, payload);
+  // 3) Escribir pos_data con el token de USUARIO (eats.pos_provisioning) para
+  //    generar uso exitoso bajo ese scope. La tienda ya está integrada con
+  //    nuestra app, así que reafirmamos la config (idempotente).
+  const payload = { pos_integration_enabled: true, integration_enabled: true };
+  out.activacion["POST pos_data"] = await call("POST", `/v1/eats/stores/${STORE_ID}/pos_data`, payload);
+  if (![200, 204].includes(out.activacion["POST pos_data"].status)) {
+    out.activacion["PUT pos_data"] = await call("PUT", `/v1/eats/stores/${STORE_ID}/pos_data`, payload);
+    out.activacion["PATCH pos_data"] = await call("PATCH", `/v1/eats/stores/${STORE_ID}/pos_data`, payload);
   }
 
   // 4) Estado final de la tienda.
