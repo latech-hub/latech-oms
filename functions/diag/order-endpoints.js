@@ -4,10 +4,12 @@
 //
 // Uso:
 //   /diag/order-endpoints?id=<order_id>                     -> Get Order (ambas familias)
+//   /diag/order-endpoints?id=<order_id>&action=accept       -> Accept
 //   /diag/order-endpoints?id=<order_id>&action=ready        -> Mark Ready
 //   /diag/order-endpoints?id=<order_id>&action=cancel       -> Cancel
 //   /diag/order-endpoints?id=<order_id>&action=deny         -> Deny
 //   /diag/order-endpoints?id=<order_id>&action=resolve      -> Resolve Fulfillment
+//                                        (arma el payload leyendo el 1er item)
 //   &family=new  usa /v1/delivery/order/{id}/...   (API documentada v1.0.0)
 //   &family=old  usa /v1/eats/orders/{id}/...      (rutas legacy que ya usamos)
 //   sin family  -> prueba AMBAS y reporta el status de cada una.
@@ -22,6 +24,10 @@ function json(o) {
 // Rutas + body por acción y familia.
 function rutas(id) {
   return {
+    accept: {
+      new: { path: `/v1/delivery/order/${id}/accept`, body: { accepted_by: "LaTech OMS" } },
+      old: { path: `/v1/eats/orders/${id}/accept_pos_order`, body: { reason: "LaTech OMS" } },
+    },
     ready: {
       new: { path: `/v1/delivery/order/${id}/ready`, body: {} },
       old: { path: `/v1/eats/orders/${id}/restaurant/ready`, body: {} },
@@ -84,6 +90,22 @@ export async function onRequest(context) {
 
   const r = rutas(id)[action];
   if (!r) return json({ error: `action invalida: ${action}` });
+
+  // Para "resolve": leer la orden y armar un fulfillment_issue real
+  // (OUT_OF_ITEM + REMOVE_ITEM sobre el 1er item del carro).
+  if (action === "resolve") {
+    const ord = await call("GET", `/v2/eats/order/${id}`);
+    const item = ord.body?.cart?.items?.[0];
+    const cartItemId = item?.instance_id || item?.id;
+    out.item_usado = { cart_item_id: cartItemId, title: item?.title };
+    if (cartItemId) {
+      r.new.body = {
+        fulfillment_issues: [
+          { issue_type: "OUT_OF_ITEM", action_type: "REMOVE_ITEM", item: { cart_item_id: cartItemId } },
+        ],
+      };
+    }
+  }
 
   const fams = family ? [family] : ["new", "old"];
   out.action = action;
