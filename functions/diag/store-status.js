@@ -14,13 +14,16 @@ function json(o) {
 }
 
 async function token(env, scope) {
+  const params = {
+    client_id: env.UBEREATS_TEST_CLIENT_ID, client_secret: env.UBEREATS_TEST_CLIENT_SECRET,
+    grant_type: "client_credentials",
+  };
+  // Si no se pasa scope, Uber devuelve TODOS los scopes concedidos a la app.
+  if (scope) params.scope = scope;
   const r = await fetch(AUTH, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: env.UBEREATS_TEST_CLIENT_ID, client_secret: env.UBEREATS_TEST_CLIENT_SECRET,
-      grant_type: "client_credentials", scope,
-    }),
+    body: new URLSearchParams(params),
   });
   return r.json().catch(() => ({}));
 }
@@ -32,8 +35,8 @@ export async function onRequest(context) {
   const doMenu = url.searchParams.get("menu") === "si";
 
   const out = { store_id: STORE_ID };
-  const scope = "eats.store eats.store.status.read eats.store.status.write";
-  const tok = await token(env, scope);
+  // Sin scope explícito -> Uber concede todos los scopes de la app.
+  const tok = await token(env, null);
   out.token_scope = tok.scope || null;
   if (!tok.access_token) return json({ ...out, error: "sin token", detalle: tok });
   const H = { Authorization: `Bearer ${tok.access_token}`, "Content-Type": "application/json" };
