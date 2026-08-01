@@ -1,7 +1,5 @@
-// functions/diag/store-status.js — TEMPORAL. Genera uso de los scopes en hold:
-//   eats.store.status.read / eats.store.status.write  (estado de tienda)
-//   eats.store                                        (Update Item de menú)
-// Pide un token con los scopes granulares para que Uber atribuya bien el uso.
+// functions/diag/store-status.js — TEMPORAL. Descubre qué scopes acepta el
+// token client_credentials y genera uso de status (read/write) y Menú.
 // URL: /diag/store-status[?write=si][&menu=si]   Quitar antes de prod.
 
 const STORE_ID = "896c28ce-be6c-4e66-a7fd-2fcdf35b7e35";
@@ -18,7 +16,6 @@ async function token(env, scope) {
     client_id: env.UBEREATS_TEST_CLIENT_ID, client_secret: env.UBEREATS_TEST_CLIENT_SECRET,
     grant_type: "client_credentials",
   };
-  // Si no se pasa scope, Uber devuelve TODOS los scopes concedidos a la app.
   if (scope) params.scope = scope;
   const r = await fetch(AUTH, {
     method: "POST",
@@ -34,13 +31,32 @@ export async function onRequest(context) {
   const doWrite = url.searchParams.get("write") === "si";
   const doMenu = url.searchParams.get("menu") === "si";
 
-  const out = { store_id: STORE_ID };
-  // Sin scope explícito -> Uber concede todos los scopes de la app.
-  const tok = await token(env, null);
-  out.token_scope = tok.scope || null;
-  if (!tok.access_token) return json({ ...out, error: "sin token", detalle: tok });
-  const H = { Authorization: `Bearer ${tok.access_token}`, "Content-Type": "application/json" };
+  const out = { store_id: STORE_ID, probe: {} };
 
+  // Probar candidatos de scope para descubrir cuáles son válidos.
+  const candidates = [
+    "eats.order eats.store eats.store.orders.read eats.store.status.write eats.report",
+    "eats.store eats.store.status.write",
+    "eats.store.status.read",
+    "eats.store.status.write",
+    "eats.report",
+    "eats.store.promotions.write",
+    "eats.store",
+  ];
+  let best = null;
+  for (const c of candidates) {
+    const t = await token(env, c);
+    if (t.access_token) {
+      out.probe[c] = { ok: true, granted: t.scope };
+      if (!best) best = t; // usar el primero (el más amplio) para las llamadas
+    } else {
+      out.probe[c] = { ok: false, error: t.error, desc: t.error_description };
+    }
+  }
+  if (!best) return json({ ...out, error: "ningún scope válido" });
+
+  out.token_scope = best.scope;
+  const H = { Authorization: `Bearer ${best.access_token}`, "Content-Type": "application/json" };
   async function call(method, path, body) {
     const opt = { method, headers: H };
     if (body !== undefined) opt.body = JSON.stringify(body);
@@ -50,23 +66,13 @@ export async function onRequest(context) {
     return { path, status: r.status, body: j ?? (t || "").slice(0, 300) };
   }
 
-  // READ status (eats.store.status.read)
   out.read = await call("GET", `/v1/eats/store/${STORE_ID}/status`);
-
-  // WRITE status ONLINE (eats.store.status.write) - no destructivo
-  if (doWrite) {
-    out.write = await call("POST", `/v1/eats/store/${STORE_ID}/status`, { status: "ONLINE" });
-  }
-
-  // MENU: Update Item (eats.store). Probar variantes de ruta/payload.
+  if (doWrite) out.write = await call("POST", `/v1/eats/store/${STORE_ID}/status`, { status: "ONLINE" });
   if (doMenu) {
-    out.menu = {};
-    const bodyItem = {
+    out.menu = await call("POST", `/v2/eats/stores/${STORE_ID}/menus/items/${ITEM_ID}`, {
       price_info: { price: 100 },
       suspension_info: { suspension: { suspend_until: 0 } },
-    };
-    out.menu["POST /v2/eats/stores/{id}/menus/items/{item}"] =
-      await call("POST", `/v2/eats/stores/${STORE_ID}/menus/items/${ITEM_ID}`, bodyItem);
+    });
   }
   return json(out);
 }
